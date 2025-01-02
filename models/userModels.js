@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-    name: { // Single field for full name as per the frontend form
+    name: { 
         type: String,
         required: true
     },
@@ -21,8 +21,17 @@ const userSchema = new mongoose.Schema({
     salt: {
         type: String,
         required: true
+    },
+    otp: { // Store OTP temporarily for validation
+        type: String,
+        default: null
+    },
+    otpExpiration: { // Store OTP expiration time
+        type: Date,
+        default: null
     }
 });
 
 const User = mongoose.model('User', userSchema);
+
 module.exports = User;
