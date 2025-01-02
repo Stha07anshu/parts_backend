@@ -9,9 +9,9 @@ const createProduct = async (req, res) => {
     console.log(req.files);
 
     // Destructuring incoming data
-    const { productName, productPrice, productCategory, productDescription, productRating } = req.body;
+    const { productName, productPrice, productCategory, productDescription, productRating ,productType} = req.body;
 
-    if (!productName || !productPrice || !productCategory || !productDescription || !productRating) {
+    if (!productName || !productPrice || !productCategory || !productDescription || !productRating || !productType) {
         return res.status(400).json({
             success: false,
             message: "All fields are required"
@@ -46,6 +46,7 @@ const createProduct = async (req, res) => {
             productCategory,
             productDescription,
             productRating,
+            productType,
             productImage: imageName
         });
 
@@ -142,6 +143,8 @@ const deleteProduct = async (req, res) => {
 
 // Update a product
 const updateProduct = async (req, res) => {
+    console.log("Create user API hit");
+
     try {
         if (req.files && req.files.productImage) {
             const { productImage } = req.files;
