@@ -1,6 +1,7 @@
 const userModel = require('../models/userModels');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');  // We'll use nodemailer to send OTP to the user's email
 
 // Function to generate hashed password
 function generatePassword(password) {
@@ -16,6 +17,31 @@ function generatePassword(password) {
 function validPassword(password, hash, salt) {
     const checkHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
     return hash === checkHash;
+}
+
+// Function to send OTP via email
+function sendOtpEmail(email, otp) {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',  // Or any other email provider
+        auth: {
+            user: process.env.EMAIL_USER,  // Your email address
+            pass: process.env.EMAIL_PASS   // Your email password or app password
+        }
+    });
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Your OTP for password change',
+        text: `Your OTP for updating your account details is: ${otp}`
+    };
+
+    return transporter.sendMail(mailOptions);
+}
+
+// Function to generate OTP
+function generateOtp() {
+    return Math.floor(100000 + Math.random() * 900000).toString();  // 6-digit OTP
 }
 
 const createUser = async (req, res) => {
@@ -41,7 +67,7 @@ const createUser = async (req, res) => {
         // Check if the user already exists
         const existingUser = await userModel.findOne({ email: email });
         if (existingUser) {
-            return res.status(400).json({
+            return res.json({
                 success: false,
                 message: "User already exists!"
             });
@@ -61,14 +87,14 @@ const createUser = async (req, res) => {
         await newUser.save();
 
         // Send the success response
-        res.status(201).json({
+        res.json({
             success: true,
             message: "User created successfully!"
         });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({
+        res.json({
             success: false,
             message: "Internal server error!"
         });
@@ -80,7 +106,7 @@ const loginUser = async (req, res) => {
 
     // Validation
     if (!email || !password) {
-        return res.status(400).json({
+        return res.json({
             success: false,
             message: "Email and password are required!"
         });
@@ -90,7 +116,7 @@ const loginUser = async (req, res) => {
         // Find user by email
         const user = await userModel.findOne({ email: email });
         if (!user) {
-            return res.status(404).json({
+            return res.json({
                 success: false,
                 message: "User not found!"
             });
@@ -98,7 +124,7 @@ const loginUser = async (req, res) => {
 
         // Validate the password
         if (!validPassword(password, user.password, user.salt)) {
-            return res.status(401).json({
+            return res.json({
                 success: false,
                 message: "Incorrect password!"
             });
@@ -108,20 +134,150 @@ const loginUser = async (req, res) => {
         const token = jwt.sign(
             { id: user._id, is_admin: user.isAdmin },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' } // Token valid for 1 day
         );
 
         // Send the token, userData, and success message to the user
-        res.status(200).json({
+        res.json({
             success: true,
             message: "Login successful!",
             token: token,
-            userData: { id: user._id, name: user.name, email: user.email }
+            userData: user
         });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({
+        res.json({
+            success: false,
+            message: "Internal server error!"
+        });
+    }
+};
+
+// Function to update user details (name, password)
+const updateUser = async (req, res) => {
+    const { email, oldPassword, newPassword, newName, otp } = req.body;
+
+    // Validation
+    if (!email || (!oldPassword && !otp)) {
+        return res.json({
+            success: false,
+            message: "Email and either old password or OTP are required!"
+        });
+    }
+
+    try {
+        // Find user by email
+        const user = await userModel.findOne({ email: email });
+        if (!user) {
+            return res.json({
+                success: false,
+                message: "User not found!"
+            });
+        }
+
+        if (otp) {
+            // Verify OTP
+            if (user.otp !== otp) {
+                return res.json({
+                    success: false,
+                    message: "Invalid OTP!"
+                });
+            }
+
+            // Reset OTP after successful validation
+            user.otp = null;
+
+            if (newPassword) {
+                const { salt, hash } = generatePassword(newPassword);
+                user.password = hash;
+                user.salt = salt;
+            }
+
+            if (newName) {
+                user.name = newName;
+            }
+
+            await user.save();
+
+            return res.json({
+                success: true,
+                message: "User details updated successfully!"
+            });
+
+        } else if (oldPassword) {
+            // Validate old password
+            if (!validPassword(oldPassword, user.password, user.salt)) {
+                return res.json({
+                    success: false,
+                    message: "Incorrect old password!" // Return this message when old password is incorrect
+                });
+            }
+
+            if (newPassword) {
+                const { salt, hash } = generatePassword(newPassword);
+                user.password = hash;
+                user.salt = salt;
+            }
+
+            if (newName) {
+                user.name = newName;
+            }
+
+            await user.save();
+
+            return res.json({
+                success: true,
+                message: "User details updated successfully!"
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+        res.json({
+            success: false,
+            message: "Internal server error!"
+        });
+    }
+};
+
+
+// Request OTP for updating user details
+const requestOtp = async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.json({
+            success: false,
+            message: "Email is required!"
+        });
+    }
+
+    try {
+        const user = await userModel.findOne({ email: email });
+        if (!user) {
+            return res.json({
+                success: false,
+                message: "User not found!"
+            });
+        }
+
+        const otp = generateOtp();
+
+        // Save OTP to user (you can set expiration time for OTP if needed)
+        user.otp = otp;
+        await user.save();
+
+        // Send OTP to the user's email
+        await sendOtpEmail(email, otp);
+
+        return res.json({
+            success: true,
+            message: "OTP sent to your email!"
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.json({
             success: false,
             message: "Internal server error!"
         });
@@ -130,5 +286,7 @@ const loginUser = async (req, res) => {
 
 module.exports = {
     createUser,
-    loginUser
+    loginUser,
+    updateUser,
+    requestOtp
 };
