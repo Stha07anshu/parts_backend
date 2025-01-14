@@ -53,6 +53,8 @@ app.use('/api/contact', require('./routes/contactRoutes'))
 app.use('/api/cart', require('./routes/cartRoutes'))
 app.use('/api/esewa',require('./routes/esewaRoutes'));
 
+
+
 // route reult
 // http://localhost:5000/api/product/create
 
