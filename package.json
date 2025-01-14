@@ -32,7 +32,8 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
     "nodeman": "^1.1.2",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "uuid": "^11.0.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
