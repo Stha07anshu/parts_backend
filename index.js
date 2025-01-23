@@ -5,13 +5,15 @@ const connectDB = require('./database/database');
 const cors = require('cors')
 const fileUpload = require('express-fileupload')
 const path  = require('path')
-
+const morgan = require("morgan")
 
 // 2. Creating an express app
 const app = express();
 
 // JSON Config
 app.use(express.json())
+
+app.use(morgan("dev"))
 
 // File Upload Config
 app.use(fileUpload())
@@ -44,6 +46,8 @@ const PORT = process.env.PORT;
 app.get('/test', (req,res)=>{
     res.send("Test Api is Working ...!")
 })
+
+const esewaRoutes = require("./routes/esewaRoutes");
 
 // Configuring routes
 app.use('/api/user', require('./routes/userRoutes'))
